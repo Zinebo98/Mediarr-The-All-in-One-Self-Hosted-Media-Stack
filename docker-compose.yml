@@ -1,0 +1,154 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Mediarr — sanitized reference docker-compose
+#
+#  Consolidated view of the stack for documentation. In the live deployment
+#  these services are split across a few compose files (mediastack, aiometadata,
+#  aiostreams, torboxarr). All secrets come from .env — see .env.example.
+#  No real keys, passwords, or tokens are present in this file.
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-common-env: &common-env
+  PUID: ${PUID}
+  PGID: ${PGID}
+  TZ: ${TZ}
+
+services:
+  # ── Media server (hardware-accelerated) ──────────────────────────────
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      <<: *common-env
+      LIBVA_DRIVER_NAME: iHD          # Intel QSV / VAAPI
+    volumes:
+      - ./appdata/jellyfin:/config
+      - /srv/media:/srv/media
+      - /mnt/debrid:/mnt/debrid:rslave
+    devices:
+      - /dev/dri:/dev/dri             # passed-through Intel iGPU
+    group_add:
+      - "${RENDER_GID}"               # host 'render' group GID
+    ports:
+      - "8096:8096"
+    restart: unless-stopped
+
+  # ── Acquisition (*arr) ───────────────────────────────────────────────
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment: { <<: *common-env }
+    volumes: [ "./appdata/sonarr:/config", "/srv/media:/srv/media" ]
+    ports: [ "8989:8989" ]
+    restart: unless-stopped
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment: { <<: *common-env }
+    volumes: [ "./appdata/radarr:/config", "/srv/media:/srv/media" ]
+    ports: [ "7878:7878" ]
+    restart: unless-stopped
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment: { <<: *common-env }
+    volumes: [ "./appdata/prowlarr:/config" ]
+    ports: [ "9696:9696" ]
+    restart: unless-stopped
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment: { <<: *common-env }
+    volumes: [ "./appdata/bazarr:/config", "/srv/media:/srv/media" ]
+    ports: [ "6767:6767" ]
+    restart: unless-stopped
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    ports: [ "8191:8191" ]
+    restart: unless-stopped
+
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:8
+    container_name: recyclarr
+    environment: { <<: *common-env }
+    volumes: [ "./appdata/recyclarr:/config" ]
+    restart: unless-stopped
+
+  # ── Requests ─────────────────────────────────────────────────────────
+  jellyseerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    container_name: jellyseerr
+    environment:
+      TZ: ${TZ}
+    volumes: [ "./appdata/jellyseerr:/app/config" ]
+    ports: [ "5055:5055" ]
+    restart: unless-stopped
+
+  # ── AI subtitles ─────────────────────────────────────────────────────
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:v1.9.1
+    container_name: whisper
+    environment:
+      ASR_MODEL: base
+      ASR_ENGINE: faster_whisper
+    volumes: [ "./appdata/whisper:/root/.cache" ]
+    ports: [ "9000:9000" ]
+    restart: unless-stopped
+
+  # ── Download backends (debrid) ───────────────────────────────────────
+  decypharr:
+    image: ghcr.io/sirrobot01/decypharr:latest
+    container_name: decypharr
+    environment: { <<: *common-env }
+    volumes:
+      - ./appdata/decypharr:/app
+      - /srv/media:/srv/media
+    restart: unless-stopped
+
+  torboxarr:
+    image: mrjoiny/torboxarr:latest
+    container_name: torboxarr
+    environment:
+      TORBOXARR_TORBOX_API_TOKEN: ${TORBOXARR_TORBOX_API_TOKEN}
+      TORBOXARR_QBIT_PASSWORD: ${TORBOXARR_QBIT_PASSWORD}
+      TORBOXARR_SAB_API_KEY: ${TORBOXARR_SAB_API_KEY}
+    volumes:
+      - ./appdata/torboxarr:/config
+      - /srv/media/downloads/usenet:/srv/media/downloads/usenet
+    ports: [ "8085:8085" ]
+    restart: unless-stopped
+
+  # ── Streaming tier (on-demand) ───────────────────────────────────────
+  aiostreams:
+    image: ghcr.io/viren070/aiostreams:nightly
+    container_name: aiostreams
+    env_file: [ .env ]
+    ports: [ "3000:3000" ]
+    restart: unless-stopped
+
+  aiometadata:
+    image: ghcr.io/cedya77/aiometadata:latest
+    container_name: aiometadata
+    env_file: [ .env ]              # TMDB / TVDB / Trakt / etc.
+    volumes: [ "./appdata/aiometadata:/app/addon/data" ]
+    ports: [ "3232:3232" ]
+    depends_on:
+      aiometadata_redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  aiometadata_redis:
+    image: redis:latest
+    container_name: aiometadata_redis
+    command: redis-server --appendonly yes
+    volumes: [ "./appdata/aiometadata-redis:/data" ]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped

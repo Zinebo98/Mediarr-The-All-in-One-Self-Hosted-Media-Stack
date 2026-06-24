@@ -23,19 +23,9 @@ The goal: a "click play, it streams" media experience for local content **and** 
 
 ## Architecture
 
-```
-                          ┌────────────────────────────────────────────┐
-                          │            Proxmox VE host (pve)            │
-                          │     Intel i5-13400 · 48 GB RAM · ZFS        │
-                          ├────────────────────────────────────────────┤
-   Internet ── Router ────┤  VM: media-server (Debian)                  │
-                          │    └─ Docker: Jellyfin, *arr, AIOStreams,   │
-                          │       AIOMetadata, TorBoxarr, Gelato        │
-                          │    └─ iGPU (UHD 730) via VFIO passthrough   │
-                          │  VM: gaming (RX 590 GPU passthrough)        │
-                          │  CTs: DNS (Pi-hole), game servers           │
-                          └────────────────────────────────────────────┘
-```
+![Mediarr architecture](docs/architecture.png)
+
+A request flows through five stages — **Request → Find & Grab → Download → Store → Serve** — running on a Debian VM (Docker) on a Proxmox host, with the Intel iGPU passed through to Jellyfin for hardware transcoding. A separate streaming tier (AIOStreams / AIOMetadata / Gelato) layers on-demand "Instant" libraries.
 
 ### Storage (ZFS)
 | Pool | Layout | Purpose |
@@ -98,10 +88,12 @@ Trakt and TMDB catalogs are enriched via AIOMetadata and surfaced in Jellyfin th
 ├── LICENSE
 ├── .env.example          # all required env vars, no real values
 ├── .gitignore
+├── docker-compose.yml    # sanitized reference stack; secrets via ${VARS}
 ├── scripts/
 │   ├── jellyfin-reconcile.py    # targeted library scanning
 │   └── make-library-covers.py   # generates branded library tile images
 └── docs/
+    ├── architecture.png          # architecture diagram
     └── igpu-passthrough.md       # step-by-step iGPU passthrough writeup
 ```
 
@@ -112,4 +104,14 @@ Trakt and TMDB catalogs are enriched via AIOMetadata and surfaced in Jellyfin th
 1. Copy `.env.example` → `.env` and fill in your own API keys / credentials.
 2. `docker compose up -d`
 3. Configure Jellyfin hardware acceleration (QSV, `/dev/dri/renderD128`, VPP tone mapping).
-4. Install the Targeted Scans pl
+4. Install the Targeted Scans plugin and schedule `jellyfin-reconcile.py` via cron.
+
+> ⚠️ **Never commit your `.env`, real config exports, or API keys.** The `.gitignore` here is set up to keep them out.
+
+---
+
+## Notes & Lessons Learned
+
+- **Hardware accel ≠ faster scans.** The GPU only helps playback/extraction, not metadata fetching — diagnosing the difference saved a lot of wasted effort.
+- **Don't run full scans over streaming libraries.** They're virtual; scanning them hangs and orphans collections. Targeted scanning sidesteps it entirely.
+- **Self-hosted integrations need their own credentials.** Several "it doesn't work" issues traced ba
