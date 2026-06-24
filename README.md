@@ -37,8 +37,6 @@ The goal: a "click play, it streams" media experience for local content **and** 
                           └────────────────────────────────────────────┘
 ```
 
-> *Replace this ASCII sketch with a proper diagram (e.g. draw.io / Excalidraw) before sharing — it's the first thing people look at.*
-
 ### Storage (ZFS)
 | Pool | Layout | Purpose |
 | --- | --- | --- |
@@ -55,7 +53,7 @@ The redundancy choice is deliberate: media is re-downloadable, so it lives on a 
 | Layer | Tools |
 | --- | --- |
 | **Media server** | Jellyfin — hardware-accelerated transcoding (Intel QSV) |
-| **Acquisition (*arr)** | Sonarr · Radarr · Prowlarr (indexers) · Bazarr (subtitles) · Flaresolverr |
+| **Acquisition (\*arr)** | Sonarr · Radarr · Prowlarr (indexers) · Bazarr (subtitles) · Flaresolverr |
 | **Requests** | Jellyseerr (self-service request portal) |
 | **Quality automation** | Recyclarr (TRaSH-Guides quality-profile sync) |
 | **Download backends** | TorBoxarr · Decypharr — TorBox / debrid via qBittorrent + SABnzbd shims |
@@ -97,18 +95,21 @@ Trakt and TMDB catalogs are enriched via AIOMetadata and surfaced in Jellyfin th
 ```
 .
 ├── README.md
+├── LICENSE
 ├── .env.example          # all required env vars, no real values
 ├── .gitignore
-├── docker-compose.yml    # sanitized; secrets via ${VARS}
 ├── scripts/
 │   ├── jellyfin-reconcile.py    # targeted library scanning
 │   └── make-library-covers.py   # generates branded library tile images
 └── docs/
-    └── igpu-passthrough.md       # step-by-step writeup (optional)
+    └── igpu-passthrough.md       # step-by-step iGPU passthrough writeup
 ```
 
 ---
 
 ## Setup (high level)
 
-1. Copy `.env.example` → `.env` and fill in your o
+1. Copy `.env.example` → `.env` and fill in your own API keys / credentials.
+2. `docker compose up -d`
+3. Configure Jellyfin hardware acceleration (QSV, `/dev/dri/renderD128`, VPP tone mapping).
+4. Install the Targeted Scans pl
