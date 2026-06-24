@@ -4,6 +4,8 @@ How I gave a headless Jellyfin VM hardware-accelerated transcoding and HDR tone 
 
 > ⚙️ **Optional & hardware-specific.** This walks through **Intel iGPU** passthrough (QSV) on a Proxmox VM. If you're on **bare metal**, skip the passthrough steps and go straight to the Jellyfin config. On **AMD** use VAAPI, on **NVIDIA** use NVENC, and if your clients direct-play you may not need any of this at all.
 
+> 📝 **Your values will differ.** The commands below use this build's specifics — replace `106` with your VM's ID, `8086:4682` with your iGPU's PCI device ID (`lspci -nn | grep -i vga`), and `991` with your render group's GID (`getent group render`).
+
 ## The problem
 
 The media VM had no GPU, so Jellyfin transcoded in software. A single 4K HDR remux's trickplay generation ran for **10.5 hours** before I killed it; CPU sat near 100% across all vCPUs during any HDR transcode. The discrete GPU (an RX 590) was already passed through to a separate gaming VM, but the CPU's **integrated** GPU was unused — ideal for QSV transcoding (low power, excellent HDR tone mapping).
@@ -72,6 +74,4 @@ Dashboard → Playback → Transcoding: **Intel QuickSync (QSV)**, device `/dev/
 ## Gotchas worth remembering
 
 - **Cloud kernels have no `i915`.** This silently blocked `/dev/dri` until the kernel swap.
-- **Identical kernel versions** (cloud vs generic) make GRUB pick the wrong one — remove the unwanted kernel rather than fighting boot order.
-- **OpenCL tone mapping ≠ VPP tone mapping.** The LinuxServer image lacks OpenCL; use VPP on Intel.
-- **Hardware acceleration does nothing for library *scanning*** — only for playback/extraction. Diagnose those separately.
+- **Identical kernel versions** (cloud vs generic) make GRUB pick the wrong one — remove the unwanted kernel rath

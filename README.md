@@ -91,6 +91,8 @@ The media VM had no GPU, so 4K HDR transcodes ran in software — a single file'
 
 Result: decode + tone-map + encode all run on the iGPU; CPU usage during a 4K HDR transcode dropped from ~600% to background levels.
 
+→ Full writeup: [`docs/optional/hardware-transcoding.md`](docs/optional/hardware-transcoding.md)
+
 ### 2. Targeted library scanning (`jellyfin-reconcile.py`)
 Full library scans were slow and hung at ~88% on the streaming "Instant" libraries. Instead of relying on them, I wrote a reconcile script that:
 - Queries Jellyfin's API for everything already indexed,
@@ -99,8 +101,12 @@ Full library scans were slow and hung at ~88% on the streaming "Instant" librari
 
 Runs on a 5-minute cron as a self-healing safety net. See [`scripts/jellyfin-reconcile.py`](scripts/jellyfin-reconcile.py).
 
+→ Details: [`docs/optional/targeted-scanning.md`](docs/optional/targeted-scanning.md)
+
 ### 3. Metadata & catalog automation
 Trakt and TMDB catalogs are enriched via AIOMetadata and surfaced in Jellyfin through Gelato. Merged catalogs combine movie + series sources into single mixed collections (e.g. "Top Rated" with both), and a custom library-cover generator produces a consistent set of branded library tiles.
+
+→ Details: [`docs/10-streaming-tier.md`](docs/10-streaming-tier.md)
 
 ---
 
@@ -135,16 +141,11 @@ The complete, screenshot-by-screenshot build guide lives in **[`docs/00-overview
 
 > Secrets always come from `.env` (git-ignored) — never commit real keys.
 
+> ⚠️ **Never commit your `.env`, real config exports, or API keys.** The `.gitignore` here is set up to keep them out.
+
 ---
 
 ## Notes & Lessons Learned
 
 - **Hardware accel ≠ faster scans.** The GPU only helps playback/extraction, not metadata fetching — diagnosing the difference saved a lot of wasted effort.
-- **Don't run full scans over streaming libraries.** They're virtual; scanning them hangs and orphans collections. Targeted scanning sidesteps it entirely.
-- **Self-hosted integrations need their own credentials.** Several "it doesn't work" issues traced back to a service needing its *own* API app, not a shared one.
-
----
-
-## License
-
-MIT — see [`LICENSE`](LICENSE).
+- **Don't run full scans over streaming libraries.** They're virtual; scanning them hangs and orphans collecti

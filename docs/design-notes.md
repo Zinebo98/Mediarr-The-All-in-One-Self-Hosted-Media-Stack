@@ -52,9 +52,9 @@ The *why* behind the build. Anyone can wire containers together; these are the c
 **Why:** Jellyfin handles anime better as its own library (ordering, artwork), and the tags stop Sonarr wasting searches on anime trackers for regular shows (and vice-versa).
 **Trade-off:** a bit more setup (tags + a second root) for cleaner results and faster searches. (Anime *films* stay in Movies — only series get the anime treatment.)
 
-### Whisper as a narrow, last-resort subtitle fallback
+### Whisper as a narrow, last-resort subtitle fallback *(planned)*
 
-**Decision:** Whisper (AI speech-to-text) only for anime dubs with no adequate English subtitle, tuned `small.en` / int8 / CPU-capped.
+**Decision:** Whisper (AI speech-to-text) only for anime dubs with no adequate English subtitle, tuned `small.en` / int8 / CPU-capped. *(Designed but not yet wired in — see doc 07.)*
 **Why:** real subtitle providers cover ~everything else; Whisper is slow and not as clean as human subs, so it's the floor, not the default. The model/quantisation/CPU cap keep it from starving the box.
 **Trade-off:** transcribed subs are imperfect — fine as a "something is better than nothing" fallback.
 
@@ -68,4 +68,4 @@ The *why* behind the build. Anyone can wire containers together; these are the c
 
 **Decision:** one user, LAN-only, no internet-facing access.
 **Why:** it's a personal build; not exposing it removes a whole class of security/maintenance concerns.
-**Trade-off:** no remote sharing as-is — but that's the intended scope, and Tailscale covers personal remote access when needed.
+**Trade-off:** no remote sharing as-is — but that's the intended sc
