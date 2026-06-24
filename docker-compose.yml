@@ -1,16 +1,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  Mediarr — sanitized reference docker-compose
+#  Mediarr — docker-compose (consolidated for documentation)
 #
-#  Consolidated view of the stack for documentation. In the live deployment
-#  these services are split across a few compose files (mediastack, aiometadata,
-#  aiostreams, torboxarr). All secrets come from .env — see .env.example.
-#  No real keys, passwords, or tokens are present in this file.
+#  In the live deployment these run as four separate stacks under
+#  /opt/{mediastack,aiometadata,aiostreams,torboxarr}, each with its own .env.
+#  Merged here into one file so the whole stack is visible at a glance.
+#  No secrets are stored here — credentials are injected via per-stack .env.
 # ─────────────────────────────────────────────────────────────────────────────
-
-x-common-env: &common-env
-  PUID: ${PUID}
-  PGID: ${PGID}
-  TZ: ${TZ}
 
 services:
   # ── Media server (hardware-accelerated) ──────────────────────────────
@@ -18,137 +13,214 @@ services:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     environment:
-      <<: *common-env
-      LIBVA_DRIVER_NAME: iHD          # Intel QSV / VAAPI
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - LIBVA_DRIVER_NAME=iHD            # Intel QSV / VAAPI
     volumes:
-      - ./appdata/jellyfin:/config
+      - /opt/mediastack/appdata/jellyfin:/config
       - /srv/media:/srv/media
       - /mnt/debrid:/mnt/debrid:rslave
     devices:
-      - /dev/dri:/dev/dri             # passed-through Intel iGPU
+      - /dev/dri:/dev/dri                # passed-through Intel iGPU
     group_add:
-      - "${RENDER_GID}"               # host 'render' group GID
+      - "991"                            # host 'render' group GID (getent group render)
     ports:
       - "8096:8096"
     restart: unless-stopped
 
   # ── Acquisition (*arr) ───────────────────────────────────────────────
-  sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
-    container_name: sonarr
-    environment: { <<: *common-env }
-    volumes: [ "./appdata/sonarr:/config", "/srv/media:/srv/media" ]
-    ports: [ "8989:8989" ]
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /opt/mediastack/appdata/prowlarr:/config
+    ports:
+      - "9696:9696"
     restart: unless-stopped
 
   radarr:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
-    environment: { <<: *common-env }
-    volumes: [ "./appdata/radarr:/config", "/srv/media:/srv/media" ]
-    ports: [ "7878:7878" ]
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /opt/mediastack/appdata/radarr:/config
+      - /srv/media:/srv/media
+      - /mnt/debrid:/mnt/debrid:rslave
+    ports:
+      - "7878:7878"
     restart: unless-stopped
 
-  prowlarr:
-    image: lscr.io/linuxserver/prowlarr:latest
-    container_name: prowlarr
-    environment: { <<: *common-env }
-    volumes: [ "./appdata/prowlarr:/config" ]
-    ports: [ "9696:9696" ]
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /opt/mediastack/appdata/sonarr:/config
+      - /srv/media:/srv/media
+      - /mnt/debrid:/mnt/debrid:rslave
+    ports:
+      - "8989:8989"
     restart: unless-stopped
 
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
-    environment: { <<: *common-env }
-    volumes: [ "./appdata/bazarr:/config", "/srv/media:/srv/media" ]
-    ports: [ "6767:6767" ]
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /opt/mediastack/appdata/bazarr:/config
+      - /srv/media:/srv/media
+      - /mnt/debrid:/mnt/debrid:rslave
+    ports:
+      - "6767:6767"
     restart: unless-stopped
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
-    ports: [ "8191:8191" ]
+    environment:
+      - TZ=${TZ}
+      - LOG_LEVEL=info
+    ports:
+      - "8191:8191"
     restart: unless-stopped
 
   recyclarr:
     image: ghcr.io/recyclarr/recyclarr:8
     container_name: recyclarr
-    environment: { <<: *common-env }
-    volumes: [ "./appdata/recyclarr:/config" ]
-    restart: unless-stopped
+    user: 1000:1000
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - /opt/mediastack/appdata/recyclarr:/config
+    restart: "no"
 
   # ── Requests ─────────────────────────────────────────────────────────
-  jellyseerr:
+  seerr:                              # formerly Jellyseerr — now seerr-team/seerr
     image: ghcr.io/seerr-team/seerr:latest
-    container_name: jellyseerr
+    container_name: seerr
     environment:
-      TZ: ${TZ}
-    volumes: [ "./appdata/jellyseerr:/app/config" ]
-    ports: [ "5055:5055" ]
+      - TZ=${TZ}
+    volumes:
+      - /opt/mediastack/appdata/seerr:/app/config
+    ports:
+      - "5055:5055"
     restart: unless-stopped
 
-  # ── AI subtitles ─────────────────────────────────────────────────────
+  # ── AI subtitles (speech-to-text) ────────────────────────────────────
   whisper:
-    image: onerahmet/openai-whisper-asr-webservice:v1.9.1
+    image: onerahmet/openai-whisper-asr-webservice:v1.9.1   # pinned, don't drift on :latest
     container_name: whisper
     environment:
-      ASR_MODEL: base
-      ASR_ENGINE: faster_whisper
-    volumes: [ "./appdata/whisper:/root/.cache" ]
-    ports: [ "9000:9000" ]
+      - ASR_ENGINE=faster_whisper
+      - ASR_MODEL=small.en          # near-large accuracy, still fast
+      - ASR_DEVICE=cpu
+      - ASR_QUANTIZATION=int8
+      - MODEL_IDLE_TIMEOUT=300
+      - OMP_NUM_THREADS=6
+      - SUBTITLE_MAX_LINE_WIDTH=42
+      - SUBTITLE_MAX_LINE_COUNT=2
+    cpus: "6.0"
+    volumes:
+      - /mnt/appdata/whisper-cache:/root/.cache
+      - /srv/media:/srv/media:ro
+    ports:
+      - "9000:9000"
     restart: unless-stopped
 
   # ── Download backends (debrid) ───────────────────────────────────────
   decypharr:
     image: ghcr.io/sirrobot01/decypharr:latest
     container_name: decypharr
-    environment: { <<: *common-env }
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
     volumes:
-      - ./appdata/decypharr:/app
+      - /opt/mediastack/appdata/decypharr:/app
       - /srv/media:/srv/media
+      - /mnt/debrid:/mnt/debrid:rshared
+      - /mnt/appdata/decypharr-cache:/cache
+    cap_add:
+      - SYS_ADMIN                   # required for the FUSE debrid mount
+    devices:
+      - "/dev/fuse:/dev/fuse"
+    security_opt:
+      - apparmor:unconfined
+    ports:
+      - "8282:8282"
     restart: unless-stopped
 
   torboxarr:
     image: mrjoiny/torboxarr:latest
     container_name: torboxarr
-    environment:
-      TORBOXARR_TORBOX_API_TOKEN: ${TORBOXARR_TORBOX_API_TOKEN}
-      TORBOXARR_QBIT_PASSWORD: ${TORBOXARR_QBIT_PASSWORD}
-      TORBOXARR_SAB_API_KEY: ${TORBOXARR_SAB_API_KEY}
+    env_file:
+      - torboxarr.env               # TORBOXARR_TORBOX_API_TOKEN, QBIT_PASSWORD, SAB_API_KEY
     volumes:
-      - ./appdata/torboxarr:/config
-      - /srv/media/downloads/usenet:/srv/media/downloads/usenet
-    ports: [ "8085:8085" ]
+      - /srv/media:/srv/media
+      - torboxarr_config:/config
+    ports:
+      - "8085:8085"
     restart: unless-stopped
 
   # ── Streaming tier (on-demand) ───────────────────────────────────────
   aiostreams:
     image: ghcr.io/viren070/aiostreams:nightly
     container_name: aiostreams
-    env_file: [ .env ]
-    ports: [ "3000:3000" ]
+    env_file:
+      - aiostreams.env
+    volumes:
+      - /opt/aiostreams/data:/app/data
+    ports:
+      - "3000:3000"
     restart: unless-stopped
 
   aiometadata:
     image: ghcr.io/cedya77/aiometadata:latest
     container_name: aiometadata
-    env_file: [ .env ]              # TMDB / TVDB / Trakt / etc.
-    volumes: [ "./appdata/aiometadata:/app/addon/data" ]
-    ports: [ "3232:3232" ]
+    env_file:
+      - aiometadata.env             # TMDB / TVDB / Trakt / Gemini / etc.
+    volumes:
+      - /opt/aiometadata/data:/app/addon/data
+    ports:
+      - "3232:3232"
     depends_on:
       aiometadata_redis:
         condition: service_healthy
+    tty: true
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3232/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
 
   aiometadata_redis:
     image: redis:latest
     container_name: aiometadata_redis
-    command: redis-server --appendonly yes
-    volumes: [ "./appdata/aiometadata-redis:/data" ]
+    command: redis-server --appendonly yes --save 3600 1
+    volumes:
+      - /opt/aiometadata/cache:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+volumes:
+  torboxarr_config:
