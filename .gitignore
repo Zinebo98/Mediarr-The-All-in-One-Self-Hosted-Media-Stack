@@ -1,0 +1,37 @@
+# ── Secrets & environment ──────────────────────────────
+.env
+*.env
+!.env.example
+secrets/
+*.key
+*.pem
+*.token
+
+# ── Real config exports (may contain tokens/UUIDs) ─────
+*-config-*.json
+aiometadata-config*.json
+config.local.*
+
+# ── Databases & runtime state ──────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+data/
+appdata/
+cache/
+logs/
+*.log
+
+# ── Media & generated artifacts ────────────────────────
+*.mkv
+*.mp4
+*.nzb
+*.torrent
+
+# ── OS / editor cruft ──────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+__pycache__/
+*.pyc
