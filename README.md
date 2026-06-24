@@ -106,7 +106,6 @@ Trakt and TMDB catalogs are enriched via AIOMetadata and surfaced in Jellyfin th
 3. Configure Jellyfin hardware acceleration (QSV, `/dev/dri/renderD128`, VPP tone mapping).
 4. Install the Targeted Scans plugin and schedule `jellyfin-reconcile.py` via cron.
 
-> ⚠️ **Never commit your `.env`, real config exports, or API keys.** The `.gitignore` here is set up to keep them out.
 
 ---
 
