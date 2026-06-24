@@ -135,8 +135,6 @@ The complete, screenshot-by-screenshot build guide lives in **[`docs/00-overview
 
 > Secrets always come from `.env` (git-ignored) — never commit real keys.
 
-> ⚠️ **Never commit your `.env`, real config exports, or API keys.** The `.gitignore` here is set up to keep them out.
-
 ---
 
 ## Notes & Lessons Learned
